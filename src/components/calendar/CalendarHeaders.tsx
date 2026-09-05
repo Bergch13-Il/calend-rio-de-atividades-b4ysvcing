@@ -13,16 +13,15 @@ import {
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
 function TimeTicks({
-  zone,
+  timeZone,
   referenceDate,
   compact = false,
 }: {
-  zone: 'BRT' | 'IST'
+  timeZone: string
   referenceDate: Date
   compact?: boolean
 }) {
-  const ianaZone = zone === 'BRT' ? TIMEZONE_BRASIL : TIMEZONE_JERUSALEM
-  const ticks = generateTimezoneTicks(ianaZone, referenceDate, compact)
+  const ticks = generateTimezoneTicks(timeZone, referenceDate, compact)
 
   return (
     <div className="timezone-ticks" aria-hidden="true">
@@ -61,8 +60,14 @@ export function CalendarHeaders() {
     setSelectedDay(next)
   }
 
-  const brasilCode = getTimezoneCode(TIMEZONE_BRASIL, now)
-  const jerusalemCode = getTimezoneCode(TIMEZONE_JERUSALEM, now)
+  const referenceDate = viewMode === 'day' ? selectedDay : currentWeekStart
+  const brasilCode = getTimezoneCode(TIMEZONE_BRASIL, referenceDate)
+  const jerusalemCode = getTimezoneCode(TIMEZONE_JERUSALEM, referenceDate)
+
+  // On smaller screens where one timezone row is shown, respect active user toggle
+  const activeSingleZone = timezone === 'BRT' ? TIMEZONE_BRASIL : TIMEZONE_JERUSALEM
+  const activeSingleCode = timezone === 'BRT' ? brasilCode : jerusalemCode
+  const toggleNextCode = timezone === 'BRT' ? jerusalemCode : brasilCode
 
   return (
     <div className={`calendar-headers ${viewMode === 'day' ? 'is-day-view' : ''}`}>
@@ -125,17 +130,17 @@ export function CalendarHeaders() {
         </div>
         <div className="timezone-content">
           <TimeTicks
-            zone={timezone}
-            referenceDate={viewMode === 'day' ? selectedDay : currentWeekStart}
+            timeZone={TIMEZONE_BRASIL}
+            referenceDate={referenceDate}
             compact={viewMode === 'day'}
           />
           <button
             className="tablet-timezone-toggle focus-ring"
             type="button"
             onClick={() => setTimezone(timezone === 'BRT' ? 'IST' : 'BRT')}
-            aria-label={`Alternar fuso para ${timezone === 'BRT' ? jerusalemCode : brasilCode}`}
+            aria-label={`Alternar fuso para ${toggleNextCode}`}
           >
-            {timezone === 'BRT' ? jerusalemCode : brasilCode}
+            {activeSingleCode}
           </button>
           <span className="timezone-boundary" />
         </div>
@@ -151,8 +156,9 @@ export function CalendarHeaders() {
         </div>
         <div className="timezone-content">
           <TimeTicks
-            zone="IST"
-            referenceDate={viewMode === 'day' ? selectedDay : currentWeekStart}
+            timeZone={TIMEZONE_JERUSALEM}
+            referenceDate={referenceDate}
+            compact={viewMode === 'day'}
           />
           <span className="timezone-boundary" />
         </div>
