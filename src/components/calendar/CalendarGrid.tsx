@@ -44,6 +44,8 @@ export function CalendarGrid() {
   const touchStartX = useRef<number | null>(null)
   const [selection, setSelection] = useState<SlotSelection | null>(null)
   const [activeDrag, setActiveDrag] = useState<DragGestureState | null>(null)
+  const [recentlyLandedId, setRecentlyLandedId] = useState<string | null>(null)
+  const landingTimeoutRef = useRef<number | null>(null)
   const weekDays = getWeekDays(currentWeekStart)
   const visibleDays = viewMode === 'week' ? weekDays : [selectedDay]
   const enabledAccounts = new Set(
@@ -136,6 +138,19 @@ export function CalendarGrid() {
     event: CalendarEvent,
     dayIndex: number,
   ) => {
+    const container = daysRef.current
+    const rect = container?.getBoundingClientRect()
+    const colWidth = rect ? rect.width / visibleDays.length : 100
+    const startY = (event.start / 60) * HOUR_HEIGHT
+    const initialHeight = Math.max(((event.end - event.start) / 60) * HOUR_HEIGHT, 26)
+    const startX = dayIndex * colWidth
+
+    if (landingTimeoutRef.current) {
+      clearTimeout(landingTimeoutRef.current)
+      landingTimeoutRef.current = null
+    }
+    setRecentlyLandedId(null)
+
     const targetDate = dateKey(visibleDays[dayIndex])
     setActiveDrag({
       eventId: event.id,
@@ -150,6 +165,9 @@ export function CalendarGrid() {
       targetEnd: event.end,
       targetDayIndex: dayIndex,
       targetDate,
+      currentRawX: startX,
+      currentRawY: startY,
+      currentRawHeight: initialHeight,
     })
   }
 
@@ -163,6 +181,7 @@ export function CalendarGrid() {
 
       const deltaY = e.clientY - activeDrag.originClientY
       const deltaMinutes = snapMinutes((deltaY / HOUR_HEIGHT) * 60)
+      const colWidth = rect.width / visibleDays.length
 
       if (activeDrag.type === 'move') {
         const duration = activeDrag.originalEnd - activeDrag.originalStart
@@ -172,16 +191,24 @@ export function CalendarGrid() {
         )
         const clampedEnd = clampedStart + duration
 
-        // Detectar coluna/dia alvo (se for semana, permite arrastar entre dias)
+        // Detectar coluna/dia alvo contínuo
+        const relativeX = e.clientX - rect.left
         let targetIndex = activeDrag.originalDayIndex
         if (visibleDays.length > 1) {
-          const relativeX = e.clientX - rect.left
-          const colWidth = rect.width / visibleDays.length
           const calcIndex = Math.floor(relativeX / colWidth)
           targetIndex = Math.max(0, Math.min(visibleDays.length - 1, calcIndex))
         }
 
         const targetDate = dateKey(visibleDays[targetIndex])
+
+        // Posição contínua e suave para o bloco em vôo
+        const originalY = (activeDrag.originalStart / 60) * HOUR_HEIGHT
+        const originalX = activeDrag.originalDayIndex * colWidth
+        const deltaX = e.clientX - activeDrag.originClientX
+        const maxContainerY = 24 * HOUR_HEIGHT - (duration / 60) * HOUR_HEIGHT
+        const rawY = Math.max(0, Math.min(maxContainerY, originalY + deltaY))
+        const rawX = Math.max(0, Math.min(rect.width - colWidth, originalX + deltaX))
+        const height = Math.max((duration / 60) * HOUR_HEIGHT, 26)
 
         setActiveDrag((prev) =>
           prev
@@ -191,6 +218,9 @@ export function CalendarGrid() {
                 targetEnd: clampedEnd,
                 targetDayIndex: targetIndex,
                 targetDate,
+                currentRawX: rawX,
+                currentRawY: rawY,
+                currentRawHeight: height,
               }
             : null,
         )
@@ -199,13 +229,45 @@ export function CalendarGrid() {
           activeDrag.originalStart + 15,
           Math.min(1440, activeDrag.originalEnd + deltaMinutes),
         )
-        setActiveDrag((prev) => (prev ? { ...prev, targetEnd: nextEnd } : null))
+        const originalY = (activeDrag.originalStart / 60) * HOUR_HEIGHT
+        const originalHeight =
+          ((activeDrag.originalEnd - activeDrag.originalStart) / 60) * HOUR_HEIGHT
+        const rawHeight = Math.max(26, originalHeight + deltaY)
+        const originalX = activeDrag.originalDayIndex * colWidth
+
+        setActiveDrag((prev) =>
+          prev
+            ? {
+                ...prev,
+                targetEnd: nextEnd,
+                currentRawX: originalX,
+                currentRawY: originalY,
+                currentRawHeight: rawHeight,
+              }
+            : null,
+        )
       } else if (activeDrag.type === 'resize-top') {
         const nextStart = Math.max(
           0,
           Math.min(activeDrag.originalEnd - 15, activeDrag.originalStart + deltaMinutes),
         )
-        setActiveDrag((prev) => (prev ? { ...prev, targetStart: nextStart } : null))
+        const originalBottomY = (activeDrag.originalEnd / 60) * HOUR_HEIGHT
+        const originalTopY = (activeDrag.originalStart / 60) * HOUR_HEIGHT
+        const rawTopY = Math.max(0, Math.min(originalBottomY - 26, originalTopY + deltaY))
+        const rawHeight = Math.max(26, originalBottomY - rawTopY)
+        const originalX = activeDrag.originalDayIndex * colWidth
+
+        setActiveDrag((prev) =>
+          prev
+            ? {
+                ...prev,
+                targetStart: nextStart,
+                currentRawX: originalX,
+                currentRawY: rawTopY,
+                currentRawHeight: rawHeight,
+              }
+            : null,
+        )
       }
     }
 
@@ -248,6 +310,14 @@ export function CalendarGrid() {
               message,
             },
           )
+
+          // Aciona animação de landing/glide suave no bloco que acaba de pousar
+          setRecentlyLandedId(current.eventId)
+          if (landingTimeoutRef.current) clearTimeout(landingTimeoutRef.current)
+          landingTimeoutRef.current = window.setTimeout(() => {
+            setRecentlyLandedId(null)
+            landingTimeoutRef.current = null
+          }, 450)
         }
         return null
       })
@@ -324,6 +394,7 @@ export function CalendarGrid() {
             const searchMatch =
               !normalizedSearch || event.title.toLocaleLowerCase().includes(normalizedSearch)
             const isDraggingThis = activeDrag?.eventId === event.id
+            const isLanded = recentlyLandedId === event.id
             return (
               <EventBlock
                 key={event.id}
@@ -335,15 +406,16 @@ export function CalendarGrid() {
                 searchMatch={searchMatch}
                 accountEnabled={accountEnabled}
                 isDragging={isDraggingThis}
+                isLanded={isLanded}
                 onStartDrag={handleStartDrag}
               />
             )
           })}
 
-          {/* Ghost / visual feedback de drag & resize */}
+          {/* 1. Ghost de Encaixe Alvo (Target Snap Indicator): mostra onde vai cair com contorno tracejado suave */}
           {activeDrag && activeEvent && (
             <div
-              className={`event-drag-ghost ${activeDrag.type.startsWith('resize') ? 'is-resizing' : 'is-moving'}`}
+              className="event-target-slot-ghost"
               style={{
                 top: (activeDrag.targetStart / 60) * HOUR_HEIGHT,
                 height: Math.max(
@@ -352,6 +424,20 @@ export function CalendarGrid() {
                 ),
                 left: `calc(${(activeDrag.targetDayIndex / visibleDays.length) * 100}% + 4px)`,
                 width: `calc(${100 / visibleDays.length}% - 8px)`,
+                borderColor: PALETTES[activeEvent.palette]?.accent ?? '#7c3aed',
+                backgroundColor: `${PALETTES[activeEvent.palette]?.accent ?? '#7c3aed'}14`,
+              }}
+            />
+          )}
+
+          {/* 2. Bloco Deslizante em Voo (Floating Dragging/Resizing Block): segue o ponteiro com 60fps transform */}
+          {activeDrag && activeEvent && (
+            <div
+              className={`event-drag-floating ${activeDrag.type.startsWith('resize') ? 'is-resizing' : 'is-moving'}`}
+              style={{
+                transform: `translate3d(${activeDrag.currentRawX}px, ${activeDrag.currentRawY}px, 0)`,
+                width: `calc(${100 / visibleDays.length}% - 8px)`,
+                height: activeDrag.currentRawHeight,
                 backgroundColor: PALETTES[activeEvent.palette]?.fill ?? '#ede9fe',
                 borderColor: PALETTES[activeEvent.palette]?.accent ?? '#7c3aed',
               }}
@@ -369,7 +455,7 @@ export function CalendarGrid() {
                 </span>
               </div>
 
-              {/* Tooltip flutuante claro com horário atualizado durante o resize/move */}
+              {/* Tooltip flutuante com horário em tempo real e dia de destino */}
               <div
                 className={`drag-time-tooltip ${
                   activeDrag.type === 'resize-top'

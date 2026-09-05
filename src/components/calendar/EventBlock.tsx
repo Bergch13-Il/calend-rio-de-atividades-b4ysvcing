@@ -18,6 +18,10 @@ export interface DragGestureState {
   targetEnd: number
   targetDayIndex: number
   targetDate: string
+  // Posições contínuas em pixels relativos ao container do calendário
+  currentRawX: number
+  currentRawY: number
+  currentRawHeight: number
 }
 
 interface EventBlockProps {
@@ -29,6 +33,7 @@ interface EventBlockProps {
   searchMatch: boolean
   accountEnabled: boolean
   isDragging?: boolean
+  isLanded?: boolean
   onStartDrag?: (
     type: 'move' | 'resize-top' | 'resize-bottom',
     pointerEvent: ReactPointerEvent,
@@ -46,12 +51,14 @@ export function EventBlock({
   searchMatch,
   accountEnabled,
   isDragging = false,
+  isLanded = false,
   onStartDrag,
 }: EventBlockProps) {
   const { accounts, deleteEvent, openEdit } = useCalendar()
   const [popoverOpen, setPopoverOpen] = useState(false)
   const blockRef = useRef<HTMLDivElement>(null)
   const palette = PALETTES[event.palette] ?? PALETTES.lavender
+  const isDraggingRef = useRef(false)
   const account = accounts.find((item) => item.id === event.accountId) ?? accounts[0]
   const top = (event.start / 60) * hourHeight
   const height = Math.max(((event.end - event.start) / 60) * hourHeight, 26)
@@ -87,13 +94,13 @@ export function EventBlock({
       ref={blockRef}
       className={`calendar-event-wrap ${popoverOpen ? 'has-open-popover' : ''} ${
         accountEnabled ? '' : 'is-calendar-hidden'
-      } ${isDragging ? 'is-drag-source' : ''}`}
+      } ${isDragging ? 'is-drag-source' : ''} ${isLanded ? 'is-recently-landed' : ''}`}
       style={{
         top,
         height,
         left: `calc(${(dayIndex / dayCount) * 100}% + 4px)`,
         width: `calc(${100 / dayCount}% - 8px)`,
-        zIndex: popoverOpen ? 30 : 4,
+        zIndex: popoverOpen ? 30 : isLanded ? 10 : 4,
       }}
     >
       <div
@@ -107,7 +114,9 @@ export function EventBlock({
           backgroundColor: palette.fill,
           borderLeftColor: palette.accent,
         }}
-        onPointerDown={(pointerEvent) => beginDrag('move', pointerEvent)}
+        onPointerDown={(pointerEvent) => {
+          beginDrag('move', pointerEvent)
+        }}
         onClick={() => {
           setPopoverOpen((open) => !open)
         }}
