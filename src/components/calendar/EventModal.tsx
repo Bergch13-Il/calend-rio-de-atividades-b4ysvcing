@@ -180,25 +180,29 @@ function EventModalCard({ event, prefill, onClose }: EventModalCardProps) {
         <fieldset className="color-fieldset">
           <legend>Color</legend>
           <div className="color-swatches">
-            {PALETTE_KEYS.map((paletteKey) => (
-              <button
-                className={`color-swatch focus-ring ${form.palette === paletteKey ? 'is-selected' : ''}`}
-                type="button"
-                key={paletteKey}
-                title={PALETTES[paletteKey].name}
-                aria-label={`${PALETTES[paletteKey].name} color`}
-                aria-pressed={form.palette === paletteKey}
-                style={{
-                  backgroundColor: PALETTES[paletteKey].fill,
-                  borderColor: PALETTES[paletteKey].accent,
-                }}
-                onClick={() => setForm((current) => ({ ...current, palette: paletteKey }))}
-              >
-                {form.palette === paletteKey && (
-                  <Check size={14} style={{ color: PALETTES[paletteKey].accent }} />
-                )}
-              </button>
-            ))}
+            {PALETTE_KEYS.map((paletteKey) => {
+              const pal = PALETTES[paletteKey]
+              const isSelected = form.palette === paletteKey
+              return (
+                <button
+                  className={`color-swatch focus-ring ${isSelected ? 'is-selected' : ''}`}
+                  type="button"
+                  key={paletteKey}
+                  title={pal.name}
+                  aria-label={`${pal.name} color`}
+                  aria-pressed={isSelected}
+                  style={{
+                    backgroundColor: pal.fill,
+                    borderColor: pal.accent,
+                  }}
+                  onClick={() => setForm((current) => ({ ...current, palette: paletteKey }))}
+                >
+                  {isSelected && (
+                    <Check size={14} strokeWidth={2.5} style={{ color: pal.accent }} />
+                  )}
+                </button>
+              )
+            })}
           </div>
         </fieldset>
 
@@ -236,8 +240,19 @@ export function ToastViewport() {
     <div className="toast-viewport" aria-live="polite" aria-atomic="true">
       {toast && (
         <div className="calendar-toast" key={toast.id}>
-          <Check size={14} />
-          {toast.message}
+          <span className="toast-message-wrap">
+            <Check size={14} />
+            <span>{toast.message}</span>
+          </span>
+          {toast.action && (
+            <button
+              type="button"
+              className="toast-action-btn focus-ring"
+              onClick={toast.action.onClick}
+            >
+              {toast.action.label}
+            </button>
+          )}
         </div>
       )}
     </div>

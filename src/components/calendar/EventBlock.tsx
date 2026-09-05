@@ -1,9 +1,24 @@
-import { Check, MapPin, Trash2, Video, X } from 'lucide-react'
+import { Check, GripHorizontal, MapPin, Trash2, Video, X } from 'lucide-react'
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react'
 import { useCalendar } from '../../calendar/CalendarContext'
-import { dateFromKey, formatLongDate, minutesToTime, snapMinutes } from '../../calendar/date-utils'
+import { dateFromKey, formatLongDate, minutesToTime } from '../../calendar/date-utils'
 import { PALETTES } from '../../calendar/seed'
 import type { CalendarEvent } from '../../calendar/types'
+
+export interface DragGestureState {
+  eventId: string
+  type: 'move' | 'resize-top' | 'resize-bottom'
+  originClientX: number
+  originClientY: number
+  originalStart: number
+  originalEnd: number
+  originalDate: string
+  originalDayIndex: number
+  targetStart: number
+  targetEnd: number
+  targetDayIndex: number
+  targetDate: string
+}
 
 interface EventBlockProps {
   event: CalendarEvent
@@ -13,9 +28,14 @@ interface EventBlockProps {
   searchActive: boolean
   searchMatch: boolean
   accountEnabled: boolean
+  isDragging?: boolean
+  onStartDrag?: (
+    type: 'move' | 'resize-top' | 'resize-bottom',
+    pointerEvent: ReactPointerEvent,
+    event: CalendarEvent,
+    dayIndex: number,
+  ) => void
 }
-
-type Gesture = { type: 'move' | 'resize'; originY: number; start: number; end: number } | null
 
 export function EventBlock({
   event,
@@ -25,48 +45,16 @@ export function EventBlock({
   searchActive,
   searchMatch,
   accountEnabled,
+  isDragging = false,
+  onStartDrag,
 }: EventBlockProps) {
-  const { accounts, deleteEvent, openEdit, updateEventTime } = useCalendar()
+  const { accounts, deleteEvent, openEdit } = useCalendar()
   const [popoverOpen, setPopoverOpen] = useState(false)
-  const [gesture, setGesture] = useState<Gesture>(null)
-  const [draftTime, setDraftTime] = useState({ start: event.start, end: event.end })
-  const moved = useRef(false)
   const blockRef = useRef<HTMLDivElement>(null)
-  const palette = PALETTES[event.palette]
-  const account = accounts.find((item) => item.id === event.accountId)!
-  const top = (draftTime.start / 60) * hourHeight
-  const height = Math.max(((draftTime.end - draftTime.start) / 60) * hourHeight, 24)
-
-  useEffect(() => setDraftTime({ start: event.start, end: event.end }), [event.end, event.start])
-
-  useEffect(() => {
-    if (!gesture) return
-    const onMove = (pointerEvent: PointerEvent) => {
-      const delta = snapMinutes(((pointerEvent.clientY - gesture.originY) / hourHeight) * 60)
-      moved.current = moved.current || Math.abs(pointerEvent.clientY - gesture.originY) > 3
-      if (gesture.type === 'move') {
-        const duration = gesture.end - gesture.start
-        const nextStart = Math.max(0, Math.min(1440 - duration, gesture.start + delta))
-        setDraftTime({ start: nextStart, end: nextStart + duration })
-      } else {
-        const nextEnd = Math.max(gesture.start + 15, Math.min(1440, gesture.end + delta))
-        setDraftTime({ start: gesture.start, end: nextEnd })
-      }
-    }
-    const onUp = () => {
-      if (moved.current) updateEventTime(event.id, draftTime.start, draftTime.end)
-      setGesture(null)
-      window.setTimeout(() => {
-        moved.current = false
-      }, 0)
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp, { once: true })
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-    }
-  }, [draftTime.end, draftTime.start, event.id, gesture, hourHeight, updateEventTime])
+  const palette = PALETTES[event.palette] ?? PALETTES.lavender
+  const account = accounts.find((item) => item.id === event.accountId) ?? accounts[0]
+  const top = (event.start / 60) * hourHeight
+  const height = Math.max(((event.end - event.start) / 60) * hourHeight, 26)
 
   useEffect(() => {
     if (!popoverOpen) return
@@ -77,12 +65,16 @@ export function EventBlock({
     return () => window.removeEventListener('pointerdown', onPointerDown)
   }, [popoverOpen])
 
-  const beginGesture = (type: 'move' | 'resize', pointerEvent: ReactPointerEvent) => {
-    if (pointerEvent.button !== 0) return
+  const beginDrag = (
+    type: 'move' | 'resize-top' | 'resize-bottom',
+    pointerEvent: ReactPointerEvent,
+  ) => {
+    if (pointerEvent.button !== 0 && pointerEvent.pointerType === 'mouse') return
     pointerEvent.stopPropagation()
     setPopoverOpen(false)
-    moved.current = false
-    setGesture({ type, originY: pointerEvent.clientY, start: draftTime.start, end: draftTime.end })
+    if (onStartDrag) {
+      onStartDrag(type, pointerEvent, event, dayIndex)
+    }
   }
 
   const compact = height < 56
@@ -95,26 +87,29 @@ export function EventBlock({
       ref={blockRef}
       className={`calendar-event-wrap ${popoverOpen ? 'has-open-popover' : ''} ${
         accountEnabled ? '' : 'is-calendar-hidden'
-      }`}
+      } ${isDragging ? 'is-drag-source' : ''}`}
       style={{
         top,
         height,
-        left: `calc(${(dayIndex / dayCount) * 100}% + 5px)`,
-        width: `calc(${100 / dayCount}% - 10px)`,
-        zIndex: gesture ? 18 : popoverOpen ? 30 : 4,
+        left: `calc(${(dayIndex / dayCount) * 100}% + 4px)`,
+        width: `calc(${100 / dayCount}% - 8px)`,
+        zIndex: popoverOpen ? 30 : 4,
       }}
     >
       <div
         role="button"
         tabIndex={0}
-        aria-label={`${event.title}, ${minutesToTime(draftTime.start)} to ${minutesToTime(draftTime.end)}`}
-        className={`calendar-event focus-ring ${gesture ? 'is-dragging' : ''} ${
+        aria-label={`${event.title}, ${minutesToTime(event.start)} to ${minutesToTime(event.end)}`}
+        className={`calendar-event focus-ring ${
           searchActive ? (searchMatch ? 'is-search-match' : 'is-search-dimmed') : ''
         }`}
-        style={{ backgroundColor: palette.fill, borderLeftColor: palette.accent }}
-        onPointerDown={(pointerEvent) => beginGesture('move', pointerEvent)}
+        style={{
+          backgroundColor: palette.fill,
+          borderLeftColor: palette.accent,
+        }}
+        onPointerDown={(pointerEvent) => beginDrag('move', pointerEvent)}
         onClick={() => {
-          if (!moved.current) setPopoverOpen((open) => !open)
+          setPopoverOpen((open) => !open)
         }}
         onKeyDown={(keyboardEvent) => {
           if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
@@ -123,6 +118,19 @@ export function EventBlock({
           }
         }}
       >
+        {/* Alça superior de redimensionamento */}
+        <div
+          className="event-resize-grip event-resize-top"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label={`Redimensionar início de ${event.title}`}
+          onPointerDown={(pointerEvent) => beginDrag('resize-top', pointerEvent)}
+        >
+          <span className="resize-handle-bar">
+            <GripHorizontal size={10} className="resize-grip-icon" />
+          </span>
+        </div>
+
         <strong className="event-title">
           {showChecks && (
             <span className="event-checks">
@@ -132,6 +140,7 @@ export function EventBlock({
           )}
           {event.title}
         </strong>
+
         {!veryCompact && hasLocation && (
           <span className="event-subtitle">
             {event.location === 'Microsoft Teams' || event.location === 'Zoom' ? (
@@ -142,18 +151,25 @@ export function EventBlock({
             {event.location}
           </span>
         )}
+
         {!compact && !hasLocation && (
           <span className="event-subtitle">
-            {minutesToTime(draftTime.start)} – {minutesToTime(draftTime.end)}
+            {minutesToTime(event.start)} – {minutesToTime(event.end)}
           </span>
         )}
-        <span
-          className="event-resize-handle"
+
+        {/* Alça inferior de redimensionamento */}
+        <div
+          className="event-resize-grip event-resize-bottom"
           role="separator"
           aria-orientation="horizontal"
-          aria-label={`Resize ${event.title}`}
-          onPointerDown={(pointerEvent) => beginGesture('resize', pointerEvent)}
-        />
+          aria-label={`Redimensionar término de ${event.title}`}
+          onPointerDown={(pointerEvent) => beginDrag('resize-bottom', pointerEvent)}
+        >
+          <span className="resize-handle-bar">
+            <GripHorizontal size={10} className="resize-grip-icon" />
+          </span>
+        </div>
       </div>
 
       {popoverOpen && (

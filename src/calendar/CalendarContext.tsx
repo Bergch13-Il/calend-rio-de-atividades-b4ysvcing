@@ -20,9 +20,15 @@ import type {
   ViewMode,
 } from './types'
 
-interface ToastMessage {
+export interface ToastAction {
+  label: string
+  onClick: () => void
+}
+
+export interface ToastMessage {
   id: number
   message: string
+  action?: ToastAction
 }
 
 interface CalendarContextValue {
@@ -60,7 +66,15 @@ interface CalendarContextValue {
   closeModal: () => void
   saveEvent: (input: EventInput, eventId?: string) => void
   deleteEvent: (eventId: string) => void
-  updateEventTime: (eventId: string, start: number, end: number) => void
+  updateEventTime: (
+    eventId: string,
+    start: number,
+    end: number,
+    date?: string,
+    options?: { previousState?: { date: string; start: number; end: number }; message?: string },
+  ) => void
+  undoLastChange: () => void
+  showToast: (message: string, action?: ToastAction) => void
 }
 
 const CalendarContext = createContext<CalendarContextValue | null>(null)
@@ -84,6 +98,12 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [timezone, setTimezone] = useState<'PDT' | 'JST'>('PDT')
   const [weekAnimationKey, setWeekAnimationKey] = useState(0)
   const [scrollRequest, setScrollRequest] = useState(0)
+  const lastStateBeforeEdit = useRef<{
+    eventId: string
+    date: string
+    start: number
+    end: number
+  } | null>(null)
   const toastTimer = useRef<number | null>(null)
   const clockStartedAt = useRef(Date.now())
 
@@ -112,10 +132,30 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     [],
   )
 
-  const showToast = useCallback((message: string) => {
+  const showToast = useCallback((message: string, action?: ToastAction) => {
     if (toastTimer.current) window.clearTimeout(toastTimer.current)
-    const next = { id: Date.now(), message }
+    const next = { id: Date.now(), message, action }
     setToast(next)
+    const duration = action ? 5000 : 2500
+    toastTimer.current = window.setTimeout(() => setToast(null), duration)
+  }, [])
+
+  const undoLastChange = useCallback(() => {
+    const last = lastStateBeforeEdit.current
+    if (!last) return
+    setEvents((current) =>
+      current.map((event) =>
+        event.id === last.eventId
+          ? { ...event, date: last.date, start: last.start, end: last.end }
+          : event,
+      ),
+    )
+    lastStateBeforeEdit.current = null
+    if (toastTimer.current) window.clearTimeout(toastTimer.current)
+    setToast({
+      id: Date.now(),
+      message: 'Ajuste desfeito',
+    })
     toastTimer.current = window.setTimeout(() => setToast(null), 2500)
   }, [])
 
@@ -213,11 +253,41 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     [showToast],
   )
 
-  const updateEventTime = useCallback((eventId: string, start: number, end: number) => {
-    setEvents((current) =>
-      current.map((event) => (event.id === eventId ? { ...event, start, end } : event)),
-    )
-  }, [])
+  const updateEventTime = useCallback(
+    (
+      eventId: string,
+      start: number,
+      end: number,
+      newDate?: string,
+      options?: {
+        previousState?: { date: string; start: number; end: number }
+        message?: string
+      },
+    ) => {
+      setEvents((current) =>
+        current.map((event) => {
+          if (event.id !== eventId) return event
+          const date = newDate ?? event.date
+          return { ...event, start, end, date }
+        }),
+      )
+
+      if (options?.previousState) {
+        lastStateBeforeEdit.current = {
+          eventId,
+          ...options.previousState,
+        }
+      }
+
+      if (options?.message) {
+        showToast(options.message, {
+          label: 'Desfazer',
+          onClick: undoLastChange,
+        })
+      }
+    },
+    [showToast, undoLastChange],
+  )
 
   const value = useMemo<CalendarContextValue>(
     () => ({
@@ -256,6 +326,8 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       saveEvent,
       deleteEvent,
       updateEventTime,
+      undoLastChange,
+      showToast,
     }),
     [
       accounts,
@@ -285,6 +357,8 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       toast,
       toggleAccount,
       updateEventTime,
+      undoLastChange,
+      showToast,
       viewMode,
       weekAnimationKey,
     ],

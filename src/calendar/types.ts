@@ -1,6 +1,26 @@
 export type ViewMode = 'week' | 'day'
 export type AccountId = 'outlook' | 'personal' | 'company'
-export type EventPalette = 'lavender' | 'blue' | 'peach' | 'mint' | 'rose'
+export type EventPalette =
+  | 'lavender'
+  | 'blue'
+  | 'peach'
+  | 'mint'
+  | 'rose'
+  | 'lilac'
+  | 'sky'
+  | 'cyan'
+  | 'teal'
+  | 'sage'
+  | 'lime'
+  | 'lemon'
+  | 'banana'
+  | 'amber'
+  | 'apricot'
+  | 'coral'
+  | 'bubblegum'
+  | 'berry'
+  | 'warmgray'
+  | 'slate'
 
 export interface CalendarAccount {
   id: AccountId

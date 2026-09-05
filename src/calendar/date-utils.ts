@@ -93,6 +93,13 @@ export function formatLongDate(date: Date) {
   }).format(date)
 }
 
+export function formatShortDatePt(date: Date) {
+  // Exemplo: "Qua, 15" ou "Seg, 13"
+  const weekday = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' }).format(date)
+  const capitalizedWeekday = weekday.charAt(0).toUpperCase() + weekday.slice(1).replace('.', '')
+  return `${capitalizedWeekday}, ${date.getDate()}`
+}
+
 export function minutesToTime(minutes: number) {
   if (minutes === 1440) return '12:00 AM'
   const hour = Math.floor(minutes / 60) % 24
