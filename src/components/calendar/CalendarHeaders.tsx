@@ -1,45 +1,40 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCalendar } from '../../calendar/CalendarContext'
-import { addDays, getWeekDays, hourLabel, sameDay } from '../../calendar/date-utils'
+import {
+  addDays,
+  generateTimezoneTicks,
+  getTimezoneCode,
+  getWeekDays,
+  sameDay,
+  TIMEZONE_BRASIL,
+  TIMEZONE_JERUSALEM,
+} from '../../calendar/date-utils'
 
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 
-function TimeTicks({ zone, compact = false }: { zone: 'PDT' | 'JST'; compact?: boolean }) {
-  const labels =
-    zone === 'PDT'
-      ? Array.from({ length: compact ? 8 : 22 }, (_, index) => hourLabel(index + 1))
-      : [
-          '4 PM',
-          '5 PM',
-          '6 PM',
-          '7 PM',
-          '8 PM',
-          '9 PM',
-          '10 PM',
-          '11 PM',
-          'SAT Jul 18',
-          '12 AM',
-          '1 AM',
-          '2 AM',
-          '3 AM',
-          '4 AM',
-          '5 AM',
-          '6 AM',
-          '7 AM',
-          '8 AM',
-        ]
+function TimeTicks({
+  zone,
+  referenceDate,
+  compact = false,
+}: {
+  zone: 'BRT' | 'IST'
+  referenceDate: Date
+  compact?: boolean
+}) {
+  const ianaZone = zone === 'BRT' ? TIMEZONE_BRASIL : TIMEZONE_JERUSALEM
+  const ticks = generateTimezoneTicks(ianaZone, referenceDate, compact)
 
   return (
     <div className="timezone-ticks" aria-hidden="true">
-      {labels.map((label, index) =>
-        label === 'SAT Jul 18' ? (
-          <span className="timezone-date-badge" key={label}>
-            SAT <strong>Jul 18</strong>
+      {ticks.map((item, index) =>
+        item.type === 'date-badge' ? (
+          <span className="timezone-date-badge" key={item.key || `badge-${index}`}>
+            {item.badgeWeekday} <strong>{item.badgeMonthDay}</strong>
           </span>
         ) : (
-          <span className="timezone-tick" key={`${label}-${index}`}>
-            <b>{label.split(' ')[0]}</b>
-            <small>{label.split(' ')[1]}</small>
+          <span className="timezone-tick" key={item.key || `tick-${index}`}>
+            <b>{item.hourText}</b>
+            <small>{item.suffix}</small>
           </span>
         ),
       )}
@@ -66,12 +61,15 @@ export function CalendarHeaders() {
     setSelectedDay(next)
   }
 
+  const brasilCode = getTimezoneCode(TIMEZONE_BRASIL, now)
+  const jerusalemCode = getTimezoneCode(TIMEZONE_JERUSALEM, now)
+
   return (
     <div className={`calendar-headers ${viewMode === 'day' ? 'is-day-view' : ''}`}>
       <div className="day-header-row">
         <div className="header-gutter day-header-gutter">
-          <span>US</span>
-          <span>PDT</span>
+          <span>BR</span>
+          <span>{brasilCode}</span>
         </div>
         <div
           className="day-header-cells"
@@ -116,38 +114,46 @@ export function CalendarHeaders() {
         )}
       </div>
 
-      <div className="timezone-row timezone-san-francisco">
+      <div className="timezone-row timezone-brasil">
         <div className="header-gutter timezone-name">
-          <span className="country-code">US</span>
-          <strong>San Francisco</strong>
+          <span className="country-code">BR</span>
+          <strong>Brasil (Paraná)</strong>
           <div>
-            <small>PDT</small>
+            <small>{brasilCode}</small>
             <small className="you-badge">YOU</small>
           </div>
         </div>
         <div className="timezone-content">
-          <TimeTicks zone={timezone} compact={viewMode === 'day'} />
+          <TimeTicks
+            zone={timezone}
+            referenceDate={viewMode === 'day' ? selectedDay : currentWeekStart}
+            compact={viewMode === 'day'}
+          />
           <button
             className="tablet-timezone-toggle focus-ring"
             type="button"
-            onClick={() => setTimezone(timezone === 'PDT' ? 'JST' : 'PDT')}
+            onClick={() => setTimezone(timezone === 'BRT' ? 'IST' : 'BRT')}
+            aria-label={`Alternar fuso para ${timezone === 'BRT' ? jerusalemCode : brasilCode}`}
           >
-            {timezone === 'PDT' ? 'JST' : 'PDT'}
+            {timezone === 'BRT' ? jerusalemCode : brasilCode}
           </button>
           <span className="timezone-boundary" />
         </div>
       </div>
 
-      <div className="timezone-row timezone-tokyo">
+      <div className="timezone-row timezone-jerusalem">
         <div className="header-gutter timezone-name">
-          <span className="country-code">JP</span>
-          <strong>Tokyo</strong>
+          <span className="country-code">IL</span>
+          <strong>Jerusalem</strong>
           <div>
-            <small>JST</small>
+            <small>{jerusalemCode}</small>
           </div>
         </div>
         <div className="timezone-content">
-          <TimeTicks zone="JST" />
+          <TimeTicks
+            zone="IST"
+            referenceDate={viewMode === 'day' ? selectedDay : currentWeekStart}
+          />
           <span className="timezone-boundary" />
         </div>
       </div>

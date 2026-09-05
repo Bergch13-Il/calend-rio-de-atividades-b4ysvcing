@@ -122,3 +122,107 @@ export function snapMinutes(minutes: number) {
 export function clampMinutes(minutes: number, minimum = 0, maximum = 1440) {
   return Math.min(maximum, Math.max(minimum, minutes))
 }
+
+export const TIMEZONE_BRASIL = 'America/Sao_Paulo'
+export const TIMEZONE_JERUSALEM = 'Asia/Jerusalem'
+
+/**
+ * Returns the short timezone abbreviation (e.g. BRT, IST, IDT) or offset for a specific date and IANA time zone.
+ */
+export function getTimezoneCode(timeZone: string, date: Date = FIDELITY_NOW): string {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      timeZoneName: 'short',
+    })
+    const parts = formatter.formatToParts(date)
+    const tzPart = parts.find((part) => part.type === 'timeZoneName')
+    return tzPart?.value ?? 'UTC'
+  } catch {
+    return timeZone === TIMEZONE_BRASIL ? 'BRT' : 'IST'
+  }
+}
+
+export interface TimezoneTickItem {
+  type: 'tick' | 'date-badge'
+  key: string
+  hourText?: string
+  suffix?: string
+  badgeWeekday?: string
+  badgeMonthDay?: string
+}
+
+/**
+ * Computes dynamic timezone ticks for a given IANA time zone relative to the reference date.
+ * In day view (compact), shows 8 ticks (starting from 1 AM / local hour offset).
+ * In week view, shows 22 ticks representing the hours across the visible header window.
+ * If midnight crossing occurs (e.g. into the next day), a date badge (e.g. SAT Jul 18) is dynamically rendered.
+ */
+export function generateTimezoneTicks(
+  timeZone: string,
+  referenceDate: Date,
+  compact = false,
+): TimezoneTickItem[] {
+  const tickCount = compact ? 8 : 22
+  const items: TimezoneTickItem[] = []
+
+  // Create date anchored at start of reference day in local time
+  const baseYear = referenceDate.getFullYear()
+  const baseMonth = referenceDate.getMonth()
+  const baseDate = referenceDate.getDate()
+
+  let previousDay = -1
+
+  for (let i = 0; i < tickCount; i++) {
+    const hourOffset = i + 1
+    // Find instant where America/Sao_Paulo has clock hour hourOffset:00.
+    // UTC-3 standard time -> UTC hour = hourOffset + 3.
+    // Verify using Intl so any daylight saving or anomaly in America/Sao_Paulo is accurately accounted for.
+    const approxUtc = new Date(Date.UTC(baseYear, baseMonth, baseDate, hourOffset + 3, 0, 0))
+
+    const hourFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      hour: 'numeric',
+      minute: 'numeric',
+      hour12: true,
+    })
+    const dateFormatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    })
+
+    const dateParts = dateFormatter.formatToParts(approxUtc)
+    const weekday = dateParts.find((p) => p.type === 'weekday')?.value?.toUpperCase() ?? 'SAT'
+    const month = dateParts.find((p) => p.type === 'month')?.value ?? 'Jul'
+    const day = dateParts.find((p) => p.type === 'day')?.value ?? String(baseDate)
+
+    const currentDayNum = Number.parseInt(day, 10)
+
+    // Detect day boundary transition (midnight crossing) into another calendar date in target zone
+    if (i > 0 && previousDay !== -1 && currentDayNum !== previousDay && items.length < tickCount) {
+      items.push({
+        type: 'date-badge',
+        key: `badge-${weekday}-${month}-${day}`,
+        badgeWeekday: weekday,
+        badgeMonthDay: `${month} ${day}`,
+      })
+    }
+    previousDay = currentDayNum
+
+    const parts = hourFormatter.formatToParts(approxUtc)
+    const h = parts.find((p) => p.type === 'hour')?.value ?? '12'
+    const dayPeriod = parts.find((p) => p.type === 'dayPeriod')?.value?.toUpperCase() ?? 'AM'
+
+    items.push({
+      type: 'tick',
+      key: `tick-${timeZone}-${i}-${h}-${dayPeriod}`,
+      hourText: h,
+      suffix: dayPeriod,
+    })
+  }
+
+  // Ensure exact count matches original visual grid ticks
+  return items.slice(0, tickCount)
+}

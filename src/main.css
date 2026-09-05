@@ -636,8 +636,11 @@ select:focus-visible {
 .timezone-name strong {
   width: 100%;
   font-size: 10px;
-  line-height: 1;
+  line-height: 1.15;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .timezone-name div {
   display: flex;
@@ -1630,7 +1633,7 @@ select:focus-visible {
 }
 
 @media (max-width: 1024px) {
-  .timezone-tokyo {
+  .timezone-jerusalem {
     display: none;
   }
   .tablet-timezone-toggle {

@@ -45,7 +45,7 @@ interface CalendarContextValue {
   modal: EventModalState
   toast: ToastMessage | null
   agentOpen: boolean
-  timezone: 'PDT' | 'JST'
+  timezone: 'BRT' | 'IST'
   weekAnimationKey: number
   scrollRequest: number
   setSearchQuery: (value: string) => void
@@ -55,7 +55,7 @@ interface CalendarContextValue {
   setMobileSidebarOpen: (value: boolean) => void
   setMiniMonth: (date: Date) => void
   setAgentOpen: (value: boolean) => void
-  setTimezone: (value: 'PDT' | 'JST') => void
+  setTimezone: (value: 'BRT' | 'IST') => void
   navigateWeek: (amount: number) => void
   jumpToDate: (date: Date, focusDay?: boolean) => void
   goToday: () => void
@@ -95,7 +95,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   const [modal, setModal] = useState<EventModalState>(null)
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const [agentOpen, setAgentOpen] = useState(false)
-  const [timezone, setTimezone] = useState<'PDT' | 'JST'>('PDT')
+  const [timezone, setTimezone] = useState<'BRT' | 'IST'>('BRT')
   const [weekAnimationKey, setWeekAnimationKey] = useState(0)
   const [scrollRequest, setScrollRequest] = useState(0)
   const lastStateBeforeEdit = useRef<{
