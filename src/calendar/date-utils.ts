@@ -1,6 +1,10 @@
 const DAY_MS = 86_400_000
 
-export const FIDELITY_NOW = new Date(2026, 6, 17, 11, 46, 0, 0)
+export function getNow(): Date {
+  return new Date()
+}
+
+export const FIDELITY_NOW = new Date()
 
 export function startOfDay(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
@@ -215,7 +219,7 @@ export function getUtcInstantForBrazilTime(baseDate: Date, hour: number, minute 
 /**
  * Returns the short timezone abbreviation (e.g. BRT, IST, IDT) or offset for a specific date and IANA time zone.
  */
-export function getTimezoneCode(timeZone: string, date: Date = FIDELITY_NOW): string {
+export function getTimezoneCode(timeZone: string, date: Date = new Date()): string {
   try {
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone,

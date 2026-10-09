@@ -1,3 +1,4 @@
+import { addDays, dateKey, startOfWeek } from './date-utils'
 import type { CalendarAccount, CalendarEvent, EventPalette, PaletteDefinition } from './types'
 
 export const ACCOUNT_SEED: CalendarAccount[] = [
@@ -32,65 +33,76 @@ export const PALETTES: Record<EventPalette, PaletteDefinition> = {
   slate: { name: 'Slate', fill: '#E2E8F0', accent: '#475569' },
 }
 
-export const EVENT_SEED: CalendarEvent[] = [
-  {
-    id: 'planning-sync',
-    title: 'Planning sync',
-    date: '2026-07-13',
-    start: 570,
-    end: 615,
-    accountId: 'outlook',
-    palette: 'lavender',
-    location: '',
-  },
-  {
-    id: 'mufg-agent365',
-    title: 'MUFG x Agent365',
-    date: '2026-07-13',
-    start: 660,
-    end: 720,
-    accountId: 'personal',
-    palette: 'blue',
-    location: 'Microsoft Teams',
-  },
-  {
-    id: 'design-review',
-    title: 'Design review',
-    date: '2026-07-14',
-    start: 675,
-    end: 735,
-    accountId: 'company',
-    palette: 'peach',
-    location: 'Zoom',
-  },
-  {
-    id: 'all-hands',
-    title: 'All Hands Meeting',
-    date: '2026-07-17',
-    start: 660,
-    end: 750,
-    accountId: 'outlook',
-    palette: 'mint',
-    location: 'US Office & Shenzhen',
-  },
-  {
-    id: 'one-on-one-dave',
-    title: '1:1 with Dave',
-    date: '2026-07-16',
-    start: 780,
-    end: 840,
-    accountId: 'outlook',
-    palette: 'lavender',
-    location: '',
-  },
-  {
-    id: 'follow-up',
-    title: 'Follow-up',
-    date: '2026-07-17',
-    start: 855,
-    end: 900,
-    accountId: 'company',
-    palette: 'rose',
-    location: '',
-  },
-]
+export function createSeedEvents(referenceDate: Date = new Date()): CalendarEvent[] {
+  const weekStart = startOfWeek(referenceDate)
+  // Day offsets from weekStart (Sunday = 0, Monday = 1, Tuesday = 2, Wednesday = 3, Thursday = 4, Friday = 5, Saturday = 6)
+  const mondayKey = dateKey(addDays(weekStart, 1))
+  const tuesdayKey = dateKey(addDays(weekStart, 2))
+  const thursdayKey = dateKey(addDays(weekStart, 4))
+  const fridayKey = dateKey(addDays(weekStart, 5))
+
+  return [
+    {
+      id: 'planning-sync',
+      title: 'Planning sync',
+      date: mondayKey,
+      start: 570,
+      end: 615,
+      accountId: 'outlook',
+      palette: 'lavender',
+      location: '',
+    },
+    {
+      id: 'mufg-agent365',
+      title: 'MUFG x Agent365',
+      date: mondayKey,
+      start: 660,
+      end: 720,
+      accountId: 'personal',
+      palette: 'blue',
+      location: 'Microsoft Teams',
+    },
+    {
+      id: 'design-review',
+      title: 'Design review',
+      date: tuesdayKey,
+      start: 675,
+      end: 735,
+      accountId: 'company',
+      palette: 'peach',
+      location: 'Zoom',
+    },
+    {
+      id: 'all-hands',
+      title: 'All Hands Meeting',
+      date: fridayKey,
+      start: 660,
+      end: 750,
+      accountId: 'outlook',
+      palette: 'mint',
+      location: 'US Office & Shenzhen',
+    },
+    {
+      id: 'one-on-one-dave',
+      title: '1:1 with Dave',
+      date: thursdayKey,
+      start: 780,
+      end: 840,
+      accountId: 'outlook',
+      palette: 'lavender',
+      location: '',
+    },
+    {
+      id: 'follow-up',
+      title: 'Follow-up',
+      date: fridayKey,
+      start: 855,
+      end: 900,
+      accountId: 'company',
+      palette: 'rose',
+      location: '',
+    },
+  ]
+}
+
+export const EVENT_SEED: CalendarEvent[] = createSeedEvents()

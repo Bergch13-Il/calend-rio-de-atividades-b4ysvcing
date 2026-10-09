@@ -8,8 +8,8 @@ import {
   useRef,
   useState,
 } from 'react'
-import { ACCOUNT_SEED, EVENT_SEED } from './seed'
-import { addDays, addMonths, dateFromKey, FIDELITY_NOW, startOfWeek } from './date-utils'
+import { ACCOUNT_SEED, createSeedEvents } from './seed'
+import { addDays, addMonths, dateFromKey, startOfWeek } from './date-utils'
 import type {
   AccountId,
   CalendarAccount,
@@ -81,18 +81,21 @@ interface CalendarContextValue {
 const CalendarContext = createContext<CalendarContextValue | null>(null)
 
 export function CalendarProvider({ children }: { children: ReactNode }) {
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(FIDELITY_NOW))
-  const [selectedDay, setSelectedDayState] = useState(() => new Date(FIDELITY_NOW))
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date()))
+  const [selectedDay, setSelectedDayState] = useState(() => new Date())
   const [viewMode, setViewModeState] = useState<ViewMode>('week')
   const [accounts, setAccounts] = useState(() => ACCOUNT_SEED.map((account) => ({ ...account })))
-  const [events, setEvents] = useState(() => EVENT_SEED.map((event) => ({ ...event })))
-  const [now, setNow] = useState(() => new Date(FIDELITY_NOW))
+  const [events, setEvents] = useState(() => createSeedEvents(new Date()))
+  const [now, setNow] = useState(() => new Date())
   const [searchQuery, setSearchQuery] = useState('')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => typeof window !== 'undefined' && window.innerWidth <= 1024,
   )
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-  const [miniMonth, setMiniMonth] = useState(() => new Date(2026, 6, 1))
+  const [miniMonth, setMiniMonth] = useState(() => {
+    const today = new Date()
+    return new Date(today.getFullYear(), today.getMonth(), 1)
+  })
   const [modal, setModal] = useState<EventModalState>(null)
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const [agentOpen, setAgentOpen] = useState(false)
@@ -106,12 +109,10 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
     end: number
   } | null>(null)
   const toastTimer = useRef<number | null>(null)
-  const clockStartedAt = useRef(Date.now())
-
   useEffect(() => {
     const timer = window.setInterval(() => {
-      setNow(new Date(FIDELITY_NOW.getTime() + (Date.now() - clockStartedAt.current)))
-    }, 60_000)
+      setNow(new Date())
+    }, 30_000)
     return () => window.clearInterval(timer)
   }, [])
 
