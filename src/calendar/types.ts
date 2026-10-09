@@ -1,4 +1,4 @@
-export type ViewMode = 'week' | 'day'
+export type ViewMode = 'day' | 'week' | 'month' | 'agenda'
 export type AccountId = 'outlook' | 'personal' | 'company'
 export type EventPalette =
   | 'lavender'

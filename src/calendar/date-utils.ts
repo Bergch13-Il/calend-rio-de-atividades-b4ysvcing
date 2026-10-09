@@ -66,6 +66,31 @@ export function formatMonthTitle(date: Date) {
   }).format(date)
 }
 
+export function formatDayTitle(date: Date) {
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date)
+}
+
+export function formatAgendaRange(startDate: Date, daysCount = 30) {
+  const endDate = addDays(startDate, daysCount - 1)
+  const startMonth = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(startDate)
+  const endMonth = new Intl.DateTimeFormat('en-US', { month: 'short' }).format(endDate)
+  const startYear = startDate.getFullYear()
+  const endYear = endDate.getFullYear()
+
+  if (startYear !== endYear) {
+    return `${startMonth} ${startDate.getDate()}, ${startYear} – ${endMonth} ${endDate.getDate()}, ${endYear}`
+  }
+  if (startMonth !== endMonth) {
+    return `${startMonth} ${startDate.getDate()} – ${endMonth} ${endDate.getDate()}, ${endYear}`
+  }
+  return `${startMonth} ${startDate.getDate()} – ${endDate.getDate()}, ${endYear}`
+}
+
 export function formatWeekRange(weekStart: Date) {
   const weekEnd = addDays(weekStart, 6)
   const startMonth = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(weekStart)

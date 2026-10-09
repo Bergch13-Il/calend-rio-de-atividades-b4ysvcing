@@ -57,6 +57,7 @@ interface CalendarContextValue {
   setAgentOpen: (value: boolean) => void
   setTimezone: (value: 'BRT' | 'IST') => void
   navigateWeek: (amount: number) => void
+  navigateDate: (amount: number) => void
   jumpToDate: (date: Date, focusDay?: boolean) => void
   goToday: () => void
   navigateMonth: (amount: number) => void
@@ -117,7 +118,11 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth <= 640) {
-        setViewModeState('day')
+        setViewModeState((prev) => {
+          // If on week or desktop-heavy view, day or agenda is preferred on mobile
+          if (prev === 'week') return 'day'
+          return prev
+        })
       }
     }
     handleResize()
@@ -172,6 +177,43 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       animateWeek()
     },
     [animateWeek],
+  )
+
+  const navigateDate = useCallback(
+    (amount: number) => {
+      if (viewMode === 'day') {
+        setSelectedDayState((day) => {
+          const next = addDays(day, amount)
+          setCurrentWeekStart(startOfWeek(next))
+          setMiniMonth(new Date(next.getFullYear(), next.getMonth(), 1))
+          return next
+        })
+      } else if (viewMode === 'week') {
+        setCurrentWeekStart((previous) => {
+          const next = addDays(previous, amount * 7)
+          setSelectedDayState((day) => addDays(day, amount * 7))
+          setMiniMonth(new Date(next.getFullYear(), next.getMonth(), 1))
+          return next
+        })
+      } else if (viewMode === 'month') {
+        setSelectedDayState((day) => {
+          const next = addMonths(day, amount)
+          setCurrentWeekStart(startOfWeek(next))
+          setMiniMonth(new Date(next.getFullYear(), next.getMonth(), 1))
+          return next
+        })
+      } else if (viewMode === 'agenda') {
+        // Step by 14 days or 1 week for agenda list browsing
+        setSelectedDayState((day) => {
+          const next = addDays(day, amount * 14)
+          setCurrentWeekStart(startOfWeek(next))
+          setMiniMonth(new Date(next.getFullYear(), next.getMonth(), 1))
+          return next
+        })
+      }
+      animateWeek()
+    },
+    [animateWeek, viewMode],
   )
 
   const jumpToDate = useCallback(
@@ -316,6 +358,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       setAgentOpen,
       setTimezone,
       navigateWeek,
+      navigateDate,
       jumpToDate,
       goToday,
       navigateMonth,
@@ -343,6 +386,7 @@ export function CalendarProvider({ children }: { children: ReactNode }) {
       modal,
       navigateMonth,
       navigateWeek,
+      navigateDate,
       now,
       openCreate,
       openEdit,

@@ -18,7 +18,7 @@ export function CalendarToolbar() {
     currentWeekStart,
     events,
     goToday,
-    navigateWeek,
+    navigateDate,
     selectedDay,
     setAgentOpen,
     setViewMode,
@@ -62,20 +62,36 @@ export function CalendarToolbar() {
             <CalendarDays size={15} />
             <span>Today</span>
           </button>
-          <div className="week-nav" aria-label="Week navigation">
+          <div className="week-nav" aria-label="Calendar navigation">
             <button
               className="toolbar-icon-button focus-ring"
               type="button"
-              aria-label="Previous week"
-              onClick={() => navigateWeek(-1)}
+              aria-label={
+                viewMode === 'day'
+                  ? 'Previous day'
+                  : viewMode === 'week'
+                    ? 'Previous week'
+                    : viewMode === 'month'
+                      ? 'Previous month'
+                      : 'Previous period'
+              }
+              onClick={() => navigateDate(-1)}
             >
               <ChevronLeft size={17} />
             </button>
             <button
               className="toolbar-icon-button focus-ring"
               type="button"
-              aria-label="Next week"
-              onClick={() => navigateWeek(1)}
+              aria-label={
+                viewMode === 'day'
+                  ? 'Next day'
+                  : viewMode === 'week'
+                    ? 'Next week'
+                    : viewMode === 'month'
+                      ? 'Next month'
+                      : 'Next period'
+              }
+              onClick={() => navigateDate(1)}
             >
               <ChevronRight size={17} />
             </button>
@@ -87,11 +103,33 @@ export function CalendarToolbar() {
                   day: 'numeric',
                   year: 'numeric',
                 }).format(selectedDay)
-              : formatWeekRange(currentWeekStart)}
+              : viewMode === 'week'
+                ? formatWeekRange(currentWeekStart)
+                : viewMode === 'month'
+                  ? new Intl.DateTimeFormat('en-US', {
+                      month: 'long',
+                      year: 'numeric',
+                    }).format(selectedDay)
+                  : `${new Intl.DateTimeFormat('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                    }).format(selectedDay)} – ${new Intl.DateTimeFormat('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    }).format(new Date(selectedDay.getTime() + 29 * 86400000))}`}
           </h1>
         </div>
         <div className="toolbar-actions">
           <div className="view-toggle" aria-label="Calendar view">
+            <button
+              className={`focus-ring ${viewMode === 'day' ? 'is-active' : ''}`}
+              type="button"
+              aria-pressed={viewMode === 'day'}
+              onClick={() => setViewMode('day')}
+            >
+              Day
+            </button>
             <button
               className={`focus-ring ${viewMode === 'week' ? 'is-active' : ''}`}
               type="button"
@@ -101,12 +139,20 @@ export function CalendarToolbar() {
               Week
             </button>
             <button
-              className={`focus-ring ${viewMode === 'day' ? 'is-active' : ''}`}
+              className={`focus-ring ${viewMode === 'month' ? 'is-active' : ''}`}
               type="button"
-              aria-pressed={viewMode === 'day'}
-              onClick={() => setViewMode('day')}
+              aria-pressed={viewMode === 'month'}
+              onClick={() => setViewMode('month')}
             >
-              Day
+              Month
+            </button>
+            <button
+              className={`focus-ring ${viewMode === 'agenda' ? 'is-active' : ''}`}
+              type="button"
+              aria-pressed={viewMode === 'agenda'}
+              onClick={() => setViewMode('agenda')}
+            >
+              Agenda
             </button>
           </div>
           <button
